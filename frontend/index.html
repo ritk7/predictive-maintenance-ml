@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Turbofan Predictive Maintenance Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1420; --card: #171d2c; --border: #2a3244; --text: #e6e9f0; --muted: #8b93a7;
+    --low: #2ecc71; --medium: #f5a623; --high: #e74c3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header { padding: 20px 28px; border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  #controls { padding: 16px 28px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #controls input, #controls select {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 6px; font-size: 13px;
+  }
+  #summary { display: flex; gap: 12px; padding: 0 28px 16px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; }
+  .stat .n { font-size: 22px; font-weight: 700; }
+  .stat .l { font-size: 12px; color: var(--muted); }
+  #grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px; padding: 0 28px 28px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; cursor: pointer; transition: transform .1s, border-color .1s;
+  }
+  .card:hover { transform: translateY(-2px); border-color: #46536e; }
+  .card .top { display: flex; justify-content: space-between; align-items: center; }
+  .card .unit { font-weight: 700; font-size: 15px; }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 999px; font-weight: 600; text-transform: uppercase; }
+  .badge.low { background: rgba(46,204,113,.15); color: var(--low); }
+  .badge.medium { background: rgba(245,166,35,.15); color: var(--medium); }
+  .badge.high { background: rgba(231,76,60,.15); color: var(--high); }
+  .card .rul { font-size: 26px; font-weight: 700; margin-top: 8px; }
+  .card .rul-label { font-size: 11px; color: var(--muted); }
+  .card .meta { margin-top: 8px; font-size: 12px; color: var(--muted); }
+  #overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    align-items: center; justify-content: center; z-index: 10;
+  }
+  #overlay.open { display: flex; }
+  #modal {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    width: min(900px, 92vw); max-height: 88vh; overflow-y: auto; padding: 22px;
+  }
+  #modal h2 { margin-top: 0; }
+  #modal .close { float: right; cursor: pointer; color: var(--muted); font-size: 20px; }
+  .chart-wrap { margin-top: 18px; }
+  .chart-wrap h3 { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  canvas { max-height: 220px; }
+  #modalMeta { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px; }
+  #modalMeta .stat { padding: 10px 14px; }
+  #errBox { color: var(--high); padding: 0 28px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Turbofan Predictive Maintenance</h1>
+  <p>NASA C-MAPSS FD001 &mdash; live risk status for the held-out test-set engine fleet</p>
+</header>
+
+<div id="controls">
+  <input id="apiBase" value="http://127.0.0.1:8000" size="26" title="API base URL">
+  <select id="riskFilter">
+    <option value="all">All risk levels</option>
+    <option value="high">High only</option>
+    <option value="medium">Medium only</option>
+    <option value="low">Low only</option>
+  </select>
+  <input id="search" placeholder="Search unit id...">
+  <button onclick="loadEngines()">Refresh</button>
+</div>
+
+<div id="summary"></div>
+<div id="errBox"></div>
+<div id="grid">Loading engines…</div>
+
+<div id="overlay">
+  <div id="modal">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <h2 id="modalTitle"></h2>
+    <div id="modalMeta"></div>
+    <div class="chart-wrap"><h3>Sensor 11 (physical fan speed) &mdash; degradation trend</h3><canvas id="chartA"></canvas></div>
+    <div class="chart-wrap"><h3>Sensor 4 (LPT outlet temperature) &mdash; degradation trend</h3><canvas id="chartB"></canvas></div>
+  </div>
+</div>
+
+<script>
+let engines = [];
+let chartA, chartB;
+
+function apiBase() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
+
+async function loadEngines() {
+  const grid = document.getElementById('grid');
+  const errBox = document.getElementById('errBox');
+  errBox.textContent = '';
+  grid.textContent = 'Loading engines…';
+  try {
+    const res = await fetch(apiBase() + '/engines');
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`API error ${res.status}: ${body.detail || res.statusText}`);
+    }
+    const data = await res.json();
+    engines = data.engines;
+    renderSummary();
+    renderGrid();
+  } catch (e) {
+    grid.innerHTML = '';
+    errBox.textContent = 'Failed to load engines: ' + e.message +
+      ' (is the API running at ' + apiBase() + '? start it with: uvicorn src.api.main:app --reload)';
+  }
+}
+
+function renderSummary() {
+  const counts = { high: 0, medium: 0, low: 0 };
+  engines.forEach(e => counts[e.risk_level]++);
+  document.getElementById('summary').innerHTML = `
+    <div class="stat"><div class="n">${engines.length}</div><div class="l">Total Engines</div></div>
+    <div class="stat"><div class="n" style="color:var(--high)">${counts.high}</div><div class="l">High Risk</div></div>
+    <div class="stat"><div class="n" style="color:var(--medium)">${counts.medium}</div><div class="l">Medium Risk</div></div>
+    <div class="stat"><div class="n" style="color:var(--low)">${counts.low}</div><div class="l">Low Risk</div></div>
+  `;
+}
+
+function renderGrid() {
+  const filter = document.getElementById('riskFilter').value;
+  const search = document.getElementById('search').value.trim();
+  const grid = document.getElementById('grid');
+  let list = engines;
+  if (filter !== 'all') list = list.filter(e => e.risk_level === filter);
+  if (search) list = list.filter(e => e.unit_id.includes(search));
+  list = [...list].sort((a, b) => a.predicted_rul - b.predicted_rul);
+
+  if (list.length === 0) { grid.innerHTML = '<p style="color:var(--muted)">No engines match.</p>'; return; }
+
+  grid.innerHTML = list.map(e => `
+    <div class="card" onclick="openEngine('${e.unit_id}')">
+      <div class="top">
+        <span class="unit">Engine ${e.unit_id}</span>
+        <span class="badge ${e.risk_level}">${e.risk_level}</span>
+      </div>
+      <div class="rul">${e.predicted_rul.toFixed(0)}</div>
+      <div class="rul-label">predicted cycles remaining</div>
+      <div class="meta">last cycle: ${e.last_cycle} &middot; maint. prob: ${(e.maintenance_probability*100).toFixed(1)}%</div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('riskFilter').addEventListener('change', renderGrid);
+document.getElementById('search').addEventListener('input', renderGrid);
+
+async function openEngine(unitId) {
+  const eng = engines.find(e => e.unit_id === unitId);
+  document.getElementById('modalTitle').textContent = `Engine ${unitId}`;
+  document.getElementById('modalMeta').innerHTML = `
+    <div class="stat"><div class="n">${eng.predicted_rul.toFixed(1)}</div><div class="l">Predicted RUL</div></div>
+    <div class="stat"><div class="n"><span class="badge ${eng.risk_level}">${eng.risk_level}</span></div><div class="l">Risk Level</div></div>
+    <div class="stat"><div class="n">${(eng.maintenance_probability*100).toFixed(1)}%</div><div class="l">Maintenance Probability</div></div>
+    <div class="stat"><div class="n">${eng.needs_maintenance ? 'YES' : 'no'}</div><div class="l">Flagged for Maintenance</div></div>
+  `;
+  document.getElementById('overlay').classList.add('open');
+
+  try {
+    const res = await fetch(`${apiBase()}/engines/${unitId}/history`);
+    const data = await res.json();
+    const cycles = data.history.cycle;
+    drawChart('chartA', cycles, data.history.sensor_11, 'sensor_11');
+    drawChart('chartB', cycles, data.history.sensor_4, 'sensor_4');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function drawChart(canvasId, labels, values, label) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const existing = canvasId === 'chartA' ? chartA : chartB;
+  if (existing) existing.destroy();
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ label, data: values, borderColor: '#5b8def', tension: 0.2, pointRadius: 0 }] },
+    options: {
+      responsive: true,
+      scales: {
+        x: { title: { display: true, text: 'cycle' }, ticks: { color: '#8b93a7' }, grid: { color: '#2a3244' } },
+        y: { ticks: { color: '#8b93a7' }, grid: { color: '#2a3244' } },
+      },
+      plugins: { legend: { display: false } },
+    },
+  });
+  if (canvasId === 'chartA') chartA = chart; else chartB = chart;
+}
+
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+document.getElementById('overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeModal(); });
+
+loadEngines();
+</script>
+</body>
+</html>

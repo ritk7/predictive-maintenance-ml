@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+*.egg-info/
+
+# Trained model artifacts (regenerate via src/models/train_*.py) — 29MB
+models_saved/*.joblib
+
+# Raw dataset files (5.5MB; download instructions in README §1)
+data/*.txt
+
+# keep the directory structure itself in the repo
+!**/.gitkeep
+
+.DS_Store
+*.log
