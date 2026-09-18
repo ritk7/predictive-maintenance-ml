@@ -508,7 +508,18 @@ footer a { color: var(--chrome); }
       const t = (rul - M.risk_high_below) / (M.risk_medium_below - M.risk_high_below);
       return mix(warm, cool, t * 0.75);
     }
-    return cool;
+    // Always hand back rgb(), never the raw hex token: callers derive
+    // translucent variants from this string, and a hex would silently ignore
+    // the alpha and paint an opaque slab instead of a fade.
+    return mix(cool, cool, 0);
+  }
+
+  /** Translucent variant of an rgb()/hex colour — safe for either form. */
+  function alpha(col, a) {
+    const m = col.match(/rgba?\(([^)]+)\)/);
+    if (m) return `rgba(${m[1].split(",").slice(0, 3).join(",")},${a})`;
+    const [r, g, b] = hex2rgb(col);
+    return `rgba(${r},${g},${b},${a})`;
   }
 
   /* ---- header stats ---- */
@@ -590,8 +601,16 @@ footer a { color: var(--chrome); }
   /* ---- canvas helpers ---- */
   function prep(cv) {
     const dpr = window.devicePixelRatio || 1;
-    const w = cv.clientWidth, h = cv.getAttribute("height") * 1;
-    cv.width = w * dpr; cv.height = h * dpr;
+    // Cache the intended CSS height on first use. Assigning cv.height writes
+    // straight back to the height attribute, so reading that attribute on a
+    // later call returns the already-DPR-scaled value — which made the canvas
+    // grow by a factor of dpr on every single redraw (300px -> 153,600px after
+    // a few slider drags) until it rendered as a blank slab.
+    if (cv.dataset.baseH === undefined) cv.dataset.baseH = cv.getAttribute("height") || "240";
+    const h = +cv.dataset.baseH;
+    const w = cv.clientWidth || cv.parentElement.clientWidth || 320;
+    cv.width = Math.max(1, Math.round(w * dpr));
+    cv.height = Math.max(1, Math.round(h * dpr));
     cv.style.height = h + "px";
     const c = cv.getContext("2d");
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -622,8 +641,8 @@ footer a { color: var(--chrome); }
     const f = D.fleet.find((x) => x.unit === selected);
     const col = thermal(f.predicted_rul);
     const g = c.createLinearGradient(0, pad.t, 0, h - pad.b);
-    g.addColorStop(0, col.replace("rgb", "rgba").replace(")", ",.26)"));
-    g.addColorStop(1, col.replace("rgb", "rgba").replace(")", ",0)"));
+    g.addColorStop(0, alpha(col, .26));
+    g.addColorStop(1, alpha(col, 0));
     c.beginPath(); c.moveTo(X(0), Y(ys[0]));
     ys.forEach((v, i) => c.lineTo(X(i), Y(v)));
     c.lineTo(X(ys.length - 1), h - pad.b); c.lineTo(X(0), h - pad.b); c.closePath();
@@ -636,7 +655,7 @@ footer a { color: var(--chrome); }
     const lx = X(ys.length - 1), ly = Y(ys[ys.length - 1]);
     c.beginPath(); c.arc(lx, ly, 3.4, 0, Math.PI * 2); c.fillStyle = col; c.fill();
     c.beginPath(); c.arc(lx, ly, 6.5, 0, Math.PI * 2);
-    c.strokeStyle = col.replace("rgb", "rgba").replace(")", ",.35)"); c.lineWidth = 1.4; c.stroke();
+    c.strokeStyle = alpha(col, .35); c.lineWidth = 1.4; c.stroke();
 
     const d = ys[ys.length - 1] - ys[0];
     const el = $("#sensorDelta");
