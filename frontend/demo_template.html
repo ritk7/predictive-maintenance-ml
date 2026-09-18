@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turbofan Fleet Console</title>
+<meta name="description" content="Predicting remaining useful life for 100 jet engines from NASA C-MAPSS sensor data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* ============================================================
+   TOKENS — dark-first: this is an operations console.
+   Severity is encoded as temperature, because in this dataset
+   degradation literally presents as rising turbine temperature.
+   ============================================================ */
+:root {
+  --ground:      #070E13;
+  --surface:     #0E1A22;
+  --surface-2:   #16242E;
+  --surface-3:   #1D3039;
+  --line:        #203845;
+  --line-soft:   #17272F;
+  --ink:         #DEEAF0;
+  --ink-mid:     #9DB4C0;
+  --ink-dim:     #6B8593;
+  --chrome:      #A8C6D4;
+
+  /* thermal severity ramp */
+  --cool:        #2FA8B8;
+  --warm:        #E0A33C;
+  --hot:         #E4573F;
+  --cool-soft:   rgba(47,168,184,.13);
+  --warm-soft:   rgba(224,163,60,.13);
+  --hot-soft:    rgba(228,87,63,.13);
+
+  --grid:        rgba(168,198,212,.10);
+  --shadow:      0 1px 0 rgba(255,255,255,.03), 0 12px 32px rgba(0,0,0,.45);
+
+  --f-display: "Saira Condensed", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --maxw: 1180px;
+}
+:root[data-theme="light"] {
+  --ground:      #E9EFF2;
+  --surface:     #FFFFFF;
+  --surface-2:   #F4F8FA;
+  --surface-3:   #E9F0F4;
+  --line:        #CCDCE4;
+  --line-soft:   #DEE9EE;
+  --ink:         #0B1820;
+  --ink-mid:     #3D5866;
+  --ink-dim:     #61808F;
+  --chrome:      #35606F;
+  --cool:        #10788A;
+  --warm:        #9E6207;
+  --hot:         #BC3A2A;
+  --cool-soft:   rgba(16,120,138,.10);
+  --warm-soft:   rgba(158,98,7,.10);
+  --hot-soft:    rgba(188,58,42,.10);
+  --grid:        rgba(53,96,111,.14);
+  --shadow:      0 1px 0 rgba(255,255,255,.7), 0 10px 26px rgba(16,44,58,.10);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground:      #E9EFF2;
+    --surface:     #FFFFFF;
+    --surface-2:   #F4F8FA;
+    --surface-3:   #E9F0F4;
+    --line:        #CCDCE4;
+    --line-soft:   #DEE9EE;
+    --ink:         #0B1820;
+    --ink-mid:     #3D5866;
+    --ink-dim:     #61808F;
+    --chrome:      #35606F;
+    --cool:        #10788A;
+    --warm:        #9E6207;
+    --hot:         #BC3A2A;
+    --cool-soft:   rgba(16,120,138,.10);
+    --warm-soft:   rgba(158,98,7,.10);
+    --hot-soft:    rgba(188,58,42,.10);
+    --grid:        rgba(53,96,111,.14);
+    --shadow:      0 1px 0 rgba(255,255,255,.7), 0 10px 26px rgba(16,44,58,.10);
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+:focus-visible { outline: 2px solid var(--chrome); outline-offset: 2px; border-radius: 3px; }
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+.eyebrow {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: .01em; }
+h1 { font-size: clamp(38px, 6vw, 62px); font-weight: 700; line-height: 1.02; }
+h2 { font-size: clamp(24px, 3vw, 32px); font-weight: 600; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; }
+.lede { color: var(--ink-mid); max-width: 62ch; font-size: 16px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  border-bottom: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+  position: sticky; top: 0; z-index: 40;
+  backdrop-filter: blur(10px);
+}
+.topbar .wrap { display: flex; align-items: center; gap: 16px; height: 54px; }
+.brandmark { display: flex; align-items: center; gap: 9px; font-family: var(--f-display); font-weight: 600; letter-spacing: .04em; font-size: 15px; }
+.brandmark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cool); box-shadow: 0 0 0 3px var(--cool-soft); }
+.topbar .spacer { flex: 1; }
+.topbar a, .themebtn {
+  font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-mid); text-decoration: none; background: none; border: 1px solid var(--line);
+  padding: 6px 11px; border-radius: 5px; cursor: pointer; transition: color .15s, border-color .15s;
+}
+.topbar a:hover, .themebtn:hover { color: var(--ink); border-color: var(--chrome); }
+
+/* ---------- hero ---------- */
+.hero { padding: 56px 0 36px; }
+.hero h1 { margin: 14px 0 16px; }
+.hero h1 .accentline { color: var(--cool); }
+.statrow {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft);
+  border-radius: 8px; overflow: hidden; margin-top: 30px;
+}
+.stat { background: var(--surface); padding: 15px 16px; }
+.stat .v { font-family: var(--f-display); font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .k { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); margin-top: 3px; }
+
+/* ---------- ranked thermal curve (the thesis) ---------- */
+.curvewrap { margin-top: 44px; }
+.curvehead { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.curve {
+  display: flex; align-items: flex-end; gap: 2px; height: 172px;
+  padding: 14px 14px 0; background: var(--surface); border: 1px solid var(--line-soft);
+  border-radius: 9px 9px 0 0; border-bottom: none; overflow: hidden;
+}
+.bar {
+  flex: 1 1 0; min-width: 0; border-radius: 2px 2px 0 0; cursor: pointer; position: relative;
+  transform-origin: bottom; background: var(--c);
+  animation: rise .55s cubic-bezier(.22,.85,.3,1) backwards;
+  animation-delay: var(--d);
+  transition: filter .12s;
+}
+.bar:hover, .bar.sel { filter: brightness(1.45); }
+.bar.sel::after {
+  content: ""; position: absolute; inset: -3px -1px 0; border: 1px solid var(--ink);
+  border-radius: 3px 3px 0 0;
+}
+/* Rises from a already-legible resting state, and the whole sweep finishes
+   inside ~450ms, so a thumbnail or an early frame still shows the curve. */
+@keyframes rise { from { transform: scaleY(.3); } to { transform: scaleY(1); } }
+.curvefoot {
+  display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim);
+  background: var(--surface); border: 1px solid var(--line-soft); border-top: 1px solid var(--line-soft);
+  border-radius: 0 0 9px 9px; padding: 9px 15px;
+}
+.legend { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; font-family: var(--f-mono); font-size: 11px; color: var(--ink-dim); }
+.legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
+
+/* ---------- sections ---------- */
+section { padding: 62px 0; border-top: 1px solid var(--line-soft); }
+section:first-of-type { border-top: none; }
+.sechead { margin-bottom: 26px; }
+.sechead h2 { margin: 7px 0 9px; }
+
+/* ---------- fleet + detail ---------- */
+.fleetgrid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .fleetgrid { grid-template-columns: 1fr; } }
+
+.filters { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+.chip {
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+  padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink-mid); cursor: pointer; transition: .15s;
+}
+.chip:hover { border-color: var(--chrome); color: var(--ink); }
+.chip[aria-pressed="true"] { background: var(--surface-3); color: var(--ink); border-color: var(--chrome); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 7px; max-height: 430px; overflow-y: auto; padding-right: 3px; }
+.tile {
+  background: var(--surface); border: 1px solid var(--line-soft); border-left: 3px solid var(--c);
+  border-radius: 5px; padding: 8px 9px; cursor: pointer; text-align: left; transition: .13s;
+  font-family: var(--f-mono);
+}
+.tile:hover { background: var(--surface-2); transform: translateY(-1px); }
+.tile[aria-pressed="true"] { border-color: var(--chrome); border-left-color: var(--c); background: var(--surface-2); }
+.tile .u { font-size: 10px; color: var(--ink-dim); letter-spacing: .06em; }
+.tile .r { font-family: var(--f-display); font-size: 21px; font-weight: 700; color: var(--c); line-height: 1.15; font-variant-numeric: tabular-nums; }
+
+.panel { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 10px; padding: 20px; box-shadow: var(--shadow); position: sticky; top: 74px; }
+.panel .phead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.badge {
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+}
+.badge.low { background: var(--cool-soft); color: var(--cool); }
+.badge.medium { background: var(--warm-soft); color: var(--warm); }
+.badge.high { background: var(--hot-soft); color: var(--hot); }
+
+.readout { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); border-radius: 7px; overflow: hidden; margin: 16px 0; }
+.readout div { background: var(--surface-2); padding: 11px 13px; }
+.readout .k { font-family: var(--f-mono); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-dim); }
+.readout .v { font-family: var(--f-display); font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; }
+
+.chartbox { margin-top: 6px; }
+.chartlabel { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 7px; display: flex; justify-content: space-between; gap: 10px; }
+canvas { display: block; width: 100%; }
+.selhint { color: var(--ink-dim); font-size: 13px; font-style: italic; }
+
+/* ---------- threshold explorer ---------- */
+.explorer { display: grid; grid-template-columns: .95fr 1.05fr; gap: 22px; align-items: start; }
+@media (max-width: 900px) { .explorer { grid-template-columns: 1fr; } }
+
+.sliderbox { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 10px; padding: 20px; }
+input[type=range] { width: 100%; accent-color: var(--cool); margin: 12px 0 4px; height: 22px; }
+.tval { font-family: var(--f-display); font-size: 42px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+
+.costgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.costcard { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: var(--surface-2); }
+.costcard.bad { border-color: color-mix(in srgb, var(--hot) 45%, var(--line)); }
+.costcard .n { font-family: var(--f-display); font-size: 34px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.costcard.bad .n { color: var(--hot); }
+.costcard .l { font-family: var(--f-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); margin-top: 5px; }
+.costcard .sub { font-size: 12px; color: var(--ink-mid); margin-top: 7px; line-height: 1.45; }
+
+.metricbars { display: grid; gap: 10px; margin-top: 18px; }
+.mrow { display: grid; grid-template-columns: 74px 1fr 52px; align-items: center; gap: 10px; font-family: var(--f-mono); font-size: 11.5px; }
+.mrow .lab { color: var(--ink-dim); letter-spacing: .06em; text-transform: uppercase; font-size: 10px; }
+.track { height: 7px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
+.fill { height: 100%; border-radius: 4px; transition: width .18s ease; }
+.mrow .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.note {
+  border-left: 2px solid var(--cool); padding: 10px 0 10px 14px; margin-top: 18px;
+  color: var(--ink-mid); font-size: 13.5px; line-height: 1.55;
+}
+
+/* ---------- tables ---------- */
+.tablescroll { overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 9px; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-variant-numeric: tabular-nums; }
+th, td { padding: 11px 15px; text-align: right; border-bottom: 1px solid var(--line-soft); font-family: var(--f-mono); font-size: 13px; }
+th {
+  font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-dim);
+  background: var(--surface-2); font-weight: 500; white-space: nowrap;
+}
+th:first-child, td:first-child { text-align: left; font-family: var(--f-body); }
+tbody tr { background: var(--surface); }
+tbody tr:last-child td { border-bottom: none; }
+tr.sel td { background: var(--surface-2); }
+tr.sel td:first-child { box-shadow: inset 2px 0 0 var(--cool); font-weight: 600; }
+.tag { font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--cool); border: 1px solid color-mix(in srgb, var(--cool) 40%, transparent); padding: 1px 6px; border-radius: 3px; margin-left: 8px; }
+
+/* ---------- pipeline ---------- */
+.pipe { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 12px; }
+.step { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 9px; padding: 16px; position: relative; }
+.step .n { font-family: var(--f-mono); font-size: 10px; letter-spacing: .12em; color: var(--cool); }
+.step h3 { margin: 7px 0 6px; font-size: 16px; }
+.step p { font-size: 13px; color: var(--ink-mid); line-height: 1.5; }
+
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 760px) { .cols2 { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line-soft); border-radius: 9px; padding: 18px; }
+.card h3 { margin-bottom: 8px; }
+.card p { color: var(--ink-mid); font-size: 13.5px; line-height: 1.55; }
+.card p + p { margin-top: 9px; }
+code { font-family: var(--f-mono); font-size: .9em; background: var(--surface-3); padding: 1.5px 5px; border-radius: 3px; }
+
+footer { border-top: 1px solid var(--line-soft); padding: 34px 0 48px; color: var(--ink-dim); font-size: 13px; }
+footer a { color: var(--chrome); }
+.foot { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <span class="brandmark"><span class="dot"></span>C-MAPSS FLEET CONSOLE</span>
+    <span class="spacer"></span>
+    <button class="themebtn" id="themeBtn" type="button">Theme</button>
+    <a href="https://github.com/ritk7/predictive-maintenance-ml" target="_blank" rel="noopener">Source</a>
+  </div>
+</div>
+
+<div class="wrap hero">
+  <p class="eyebrow">NASA C-MAPSS FD001 &middot; Remaining useful life</p>
+  <h1>100 jet engines,<br>ranked by <span class="accentline">how long they have left</span>.</h1>
+  <p class="lede">
+    Every engine below is a real turbofan from NASA's run-to-failure benchmark. As the high-pressure
+    compressor wears, the turbine runs measurably hotter &mdash; so this console encodes risk as
+    temperature. Cool means healthy. Hot means ground it.
+  </p>
+  <div class="statrow" id="statRow"></div>
+
+  <div class="curvewrap">
+    <div class="curvehead">
+      <p class="eyebrow">Fleet ranked by predicted remaining cycles</p>
+      <div class="legend">
+        <span><i style="background:var(--hot)"></i>High &lt; 20</span>
+        <span><i style="background:var(--warm)"></i>Medium &lt; 50</span>
+        <span><i style="background:var(--cool)"></i>Low</span>
+      </div>
+    </div>
+    <div class="curve" id="curve"></div>
+    <div class="curvefoot">
+      <span id="curveLeft">most degraded</span>
+      <span id="curveHint">click any bar to inspect</span>
+      <span>healthiest</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<section>
+  <div class="sechead">
+    <p class="eyebrow">Fleet monitor</p>
+    <h2>Inspect any engine</h2>
+    <p class="lede">Predicted remaining life against the ground truth we withheld, plus the raw sensor
+      trace the prediction was made from.</p>
+  </div>
+
+  <div class="fleetgrid">
+    <div>
+      <div class="filters" id="filters">
+        <button class="chip" data-f="all" aria-pressed="true" type="button">All 100</button>
+        <button class="chip" data-f="high" aria-pressed="false" type="button">High risk</button>
+        <button class="chip" data-f="medium" aria-pressed="false" type="button">Medium</button>
+        <button class="chip" data-f="low" aria-pressed="false" type="button">Low</button>
+        <button class="chip" data-f="flagged" aria-pressed="false" type="button">Flagged</button>
+      </div>
+      <div class="tiles" id="tiles"></div>
+    </div>
+
+    <div class="panel" id="panel"></div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <p class="eyebrow">Interactive &middot; the decision that matters</p>
+    <h2>What should it take to ground an engine?</h2>
+    <p class="lede">A missed failure is an engine that fails in service. A false alarm is an unnecessary
+      inspection. They are not equally expensive &mdash; so the alert threshold is a real engineering
+      decision, not a default. Drag it.</p>
+  </div>
+
+  <div class="explorer">
+    <div class="sliderbox">
+      <p class="eyebrow">Alert threshold &mdash; P(failure within 30 cycles)</p>
+      <div class="tval mono" id="tVal">0.30</div>
+      <input type="range" id="tSlider" min="5" max="95" step="1" value="30" aria-label="Alert threshold">
+      <div class="costgrid">
+        <div class="costcard bad">
+          <div class="n mono" id="fnVal">39</div>
+          <div class="l">Missed failures</div>
+          <div class="sub">Engines that failed within 30 cycles and were never flagged.</div>
+        </div>
+        <div class="costcard">
+          <div class="n mono" id="fpVal">284</div>
+          <div class="l">False alarms</div>
+          <div class="sub">Healthy engine-cycles pulled for inspection anyway.</div>
+        </div>
+      </div>
+      <div class="metricbars" id="metricBars"></div>
+      <div class="note" id="tNote"></div>
+    </div>
+
+    <div class="panel" style="position:static">
+      <div class="chartlabel">
+        <span>Precision vs recall across every threshold</span>
+        <span class="mono" id="prAuc"></span>
+      </div>
+      <canvas id="prChart" height="300"></canvas>
+      <div class="note" style="border-color:var(--warm)">
+        The shipped model sits at <strong>0.30</strong>, chosen on F2 (recall weighted twice precision).
+        Leaving it at the 0.50 default would miss <strong>74</strong> failures instead of 39 &mdash;
+        nearly double, to avoid 152 cheap inspections.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <p class="eyebrow">Model comparison</p>
+    <h2>Three regressors, honestly scored</h2>
+    <p class="lede">Reported under both protocols, because they differ: <em>all rows</em> scores every
+      engine-cycle, <em>last cycle</em> scores each engine once &mdash; the protocol published C-MAPSS
+      benchmarks use, and the decision a deployed system actually makes.</p>
+  </div>
+  <div class="tablescroll">
+    <table id="regTable">
+      <thead><tr>
+        <th>Model</th><th>Train RMSE</th><th>Val RMSE</th>
+        <th>Test RMSE (all)</th><th>Test MAE (all)</th><th>Test RMSE (last)</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="cols2" style="margin-top:18px">
+    <div class="card">
+      <h3>The gap is the story</h3>
+      <p>Both tree models train to about <strong>10.3&ndash;10.9 RMSE</strong> and validate near
+        <strong>16</strong>. That ~5-point spread is real overfitting, reported rather than hidden.
+        The linear baseline shows no gap at all &mdash; it is high-bias, not high-variance.</p>
+    </div>
+    <div class="card">
+      <h3>Where it fails</h3>
+      <p>The model regresses toward fleet-typical wear, so unusually <em>fast</em>-failing engines are
+        reported healthier than they are &mdash; unit 41 has 18 cycles left and is predicted 43.6.
+        That is the dangerous direction, which is why the recall-tuned classifier, not the RUL number,
+        is the safer trigger.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead">
+    <p class="eyebrow">How it works</p>
+    <h2>Raw telemetry to risk call</h2>
+  </div>
+  <div class="pipe">
+    <div class="step">
+      <div class="n">STAGE 01</div><h3>Load &amp; label</h3>
+      <p>20,631 engine-cycles. RUL for training is simply max cycle minus current cycle, per engine.</p>
+    </div>
+    <div class="step">
+      <div class="n">STAGE 02</div><h3>Engineer</h3>
+      <p>Rolling mean and std over 5 and 10 cycles, plus a 10-cycle degradation slope &mdash; strictly
+        backward-looking, grouped per engine. 7 sensors sit at zero variance and are dropped.</p>
+    </div>
+    <div class="step">
+      <div class="n">STAGE 03</div><h3>Split by engine</h3>
+      <p>Never by row. Adjacent cycles of one engine on both sides of a split would leak its whole
+        trajectory. Zero unit overlap is asserted in code.</p>
+    </div>
+    <div class="step">
+      <div class="n">STAGE 04</div><h3>Train &amp; select</h3>
+      <p>XGBoost for RUL on last-cycle RMSE; Random Forest for risk on F2, because recall is worth
+        more than precision here.</p>
+    </div>
+    <div class="step">
+      <div class="n">STAGE 05</div><h3>Serve</h3>
+      <p>FastAPI. Rejects histories under 10 cycles &mdash; below that the trend features collapse and
+        a failing engine reads as healthy.</p>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap foot">
+    <span>Every figure on this page is real output from the trained models on the held-out C-MAPSS test set.</span>
+    <a href="https://github.com/ritk7/predictive-maintenance-ml" target="_blank" rel="noopener">View source &rarr;</a>
+  </div>
+</footer>
+
+<script id="demoData" type="application/json">__DEMO_DATA__</script>
+<script>
+(function () {
+  "use strict";
+  const D = JSON.parse(document.getElementById("demoData").textContent);
+  const M = D.meta;
+  const $ = (s) => document.querySelector(s);
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  /* ---- thermal ramp: RUL -> colour. Cold metal is healthy. ---- */
+  function hex2rgb(h) {
+    h = h.replace("#", "");
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  function mix(a, b, t) {
+    const A = hex2rgb(a), B = hex2rgb(b);
+    return `rgb(${Math.round(A[0] + (B[0] - A[0]) * t)},${Math.round(A[1] + (B[1] - A[1]) * t)},${Math.round(A[2] + (B[2] - A[2]) * t)})`;
+  }
+  function thermal(rul) {
+    const hot = css("--hot"), warm = css("--warm"), cool = css("--cool");
+    if (rul <= M.risk_high_below) return mix(hot, warm, Math.max(0, rul) / M.risk_high_below * 0.55);
+    if (rul <= M.risk_medium_below) {
+      const t = (rul - M.risk_high_below) / (M.risk_medium_below - M.risk_high_below);
+      return mix(warm, cool, t * 0.75);
+    }
+    return cool;
+  }
+
+  /* ---- header stats ---- */
+  const counts = { high: 0, medium: 0, low: 0 };
+  D.fleet.forEach((f) => counts[f.risk]++);
+  const flagged = D.fleet.filter((f) => f.flagged).length;
+  $("#statRow").innerHTML = [
+    [M.test_engines, "engines monitored"],
+    [counts.high, "high risk"],
+    [counts.medium, "medium risk"],
+    [flagged, "flagged for maintenance"],
+    [M.n_features, "features per cycle"],
+    [M.test_rows.toLocaleString(), "test engine-cycles"],
+  ].map(([v, k]) => `<div class="stat"><div class="v mono">${v}</div><div class="k">${k}</div></div>`).join("");
+
+  /* ---- ranked thermal curve ---- */
+  const ranked = [...D.fleet].sort((a, b) => a.predicted_rul - b.predicted_rul);
+  const maxR = Math.max(...ranked.map((f) => f.predicted_rul));
+  $("#curve").innerHTML = ranked.map((f, i) => {
+    const h = Math.max(4, (f.predicted_rul / maxR) * 100);
+    return `<button class="bar" role="listitem" data-u="${f.unit}" title="Engine ${f.unit} — ${f.predicted_rul} cycles left"
+      style="height:${h}%;--c:${thermal(f.predicted_rul)};--d:${(i * 3)}ms" aria-label="Engine ${f.unit}, ${f.predicted_rul} cycles remaining"></button>`;
+  }).join("");
+  $("#curveLeft").textContent = `most degraded · unit ${ranked[0].unit} · ${ranked[0].predicted_rul} cycles`;
+
+  /* ---- fleet tiles ---- */
+  let filter = "all", selected = ranked[0].unit;
+
+  function visible() {
+    if (filter === "all") return D.fleet;
+    if (filter === "flagged") return D.fleet.filter((f) => f.flagged);
+    return D.fleet.filter((f) => f.risk === filter);
+  }
+  function renderTiles() {
+    const list = [...visible()].sort((a, b) => a.predicted_rul - b.predicted_rul);
+    $("#tiles").innerHTML = list.map((f) => `
+      <button class="tile" data-u="${f.unit}" aria-pressed="${f.unit === selected}"
+        style="--c:${thermal(f.predicted_rul)}">
+        <div class="u">UNIT ${String(f.unit).padStart(3, "0")}</div>
+        <div class="r">${Math.round(f.predicted_rul)}</div>
+      </button>`).join("") || `<p class="selhint">No engines match.</p>`;
+  }
+
+  /* ---- detail panel ---- */
+  function renderPanel() {
+    const f = D.fleet.find((x) => x.unit === selected);
+    const err = f.predicted_rul - f.true_rul;
+    const labels = D.sensor_labels;
+    $("#panel").innerHTML = `
+      <div class="phead">
+        <div>
+          <p class="eyebrow">Engine unit ${String(f.unit).padStart(3, "0")}</p>
+          <h2 style="margin-top:4px">${Math.round(f.predicted_rul)} <span style="font-size:17px;color:var(--ink-dim);font-family:var(--f-body);font-weight:400">cycles left</span></h2>
+        </div>
+        <span class="badge ${f.risk}">${f.risk} risk</span>
+      </div>
+      <div class="readout">
+        <div><div class="k">Ground truth</div><div class="v">${f.true_rul}</div></div>
+        <div><div class="k">Error</div><div class="v" style="color:${Math.abs(err) <= 15 ? "var(--cool)" : "var(--warm)"}">${err > 0 ? "+" : ""}${err.toFixed(1)}</div></div>
+        <div><div class="k">Failure prob.</div><div class="v">${(f.probability * 100).toFixed(1)}%</div></div>
+        <div><div class="k">Cycles flown</div><div class="v">${f.last_cycle}</div></div>
+      </div>
+      <div class="chartbox">
+        <div class="chartlabel"><span id="sensorName">${labels.sensor_4}</span><span class="mono" id="sensorDelta"></span></div>
+        <canvas id="trace" height="190"></canvas>
+        <div class="filters" style="margin-top:12px;margin-bottom:0" id="sensorPick">
+          ${Object.keys(labels).map((s, i) => `<button class="chip" data-s="${s}" aria-pressed="${i === 0}" type="button">${s.replace("sensor_", "S")}</button>`).join("")}
+        </div>
+      </div>`;
+    drawTrace("sensor_4");
+    $("#sensorPick").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-s]"); if (!b) return;
+      $("#sensorPick").querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", c === b));
+      $("#sensorName").textContent = labels[b.dataset.s];
+      drawTrace(b.dataset.s);
+    });
+  }
+
+  /* ---- canvas helpers ---- */
+  function prep(cv) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth, h = cv.getAttribute("height") * 1;
+    cv.width = w * dpr; cv.height = h * dpr;
+    cv.style.height = h + "px";
+    const c = cv.getContext("2d");
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, w, h);
+    return { c, w, h };
+  }
+
+  function drawTrace(sensor) {
+    const cv = $("#trace"); if (!cv) return;
+    const t = D.traces[String(selected)];
+    const ys = t[sensor], xs = t.cycle;
+    const { c, w, h } = prep(cv);
+    const pad = { l: 44, r: 8, t: 10, b: 22 };
+    const min = Math.min(...ys), max = Math.max(...ys), span = (max - min) || 1;
+    const X = (i) => pad.l + (i / (xs.length - 1)) * (w - pad.l - pad.r);
+    const Y = (v) => pad.t + (1 - (v - min) / span) * (h - pad.t - pad.b);
+
+    c.strokeStyle = css("--grid"); c.lineWidth = 1;
+    c.fillStyle = css("--ink-dim"); c.font = '10px "IBM Plex Mono", monospace';
+    for (let i = 0; i <= 3; i++) {
+      const v = min + (span * i) / 3, y = Y(v);
+      c.beginPath(); c.moveTo(pad.l, y); c.lineTo(w - pad.r, y); c.stroke();
+      c.textAlign = "right"; c.fillText(v.toFixed(0), pad.l - 7, y + 3);
+    }
+    c.textAlign = "left"; c.fillText("cycle " + xs[0], pad.l, h - 6);
+    c.textAlign = "right"; c.fillText("" + xs[xs.length - 1], w - pad.r, h - 6);
+
+    const f = D.fleet.find((x) => x.unit === selected);
+    const col = thermal(f.predicted_rul);
+    const g = c.createLinearGradient(0, pad.t, 0, h - pad.b);
+    g.addColorStop(0, col.replace("rgb", "rgba").replace(")", ",.26)"));
+    g.addColorStop(1, col.replace("rgb", "rgba").replace(")", ",0)"));
+    c.beginPath(); c.moveTo(X(0), Y(ys[0]));
+    ys.forEach((v, i) => c.lineTo(X(i), Y(v)));
+    c.lineTo(X(ys.length - 1), h - pad.b); c.lineTo(X(0), h - pad.b); c.closePath();
+    c.fillStyle = g; c.fill();
+
+    c.beginPath(); c.moveTo(X(0), Y(ys[0]));
+    ys.forEach((v, i) => c.lineTo(X(i), Y(v)));
+    c.strokeStyle = col; c.lineWidth = 1.8; c.lineJoin = "round"; c.stroke();
+
+    const lx = X(ys.length - 1), ly = Y(ys[ys.length - 1]);
+    c.beginPath(); c.arc(lx, ly, 3.4, 0, Math.PI * 2); c.fillStyle = col; c.fill();
+    c.beginPath(); c.arc(lx, ly, 6.5, 0, Math.PI * 2);
+    c.strokeStyle = col.replace("rgb", "rgba").replace(")", ",.35)"); c.lineWidth = 1.4; c.stroke();
+
+    const d = ys[ys.length - 1] - ys[0];
+    const el = $("#sensorDelta");
+    if (el) { el.textContent = (d >= 0 ? "+" : "") + d.toFixed(1) + " over life"; el.style.color = col; }
+  }
+
+  /* ---- threshold explorer ---- */
+  const sweep = D.sweeps[M.selected_classifier];
+  $("#prAuc").textContent = "PR-AUC " + sweep.pr_auc;
+
+  function atT(t) {
+    return sweep.points.reduce((a, b) => (Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a));
+  }
+  function renderMetrics(p) {
+    $("#metricBars").innerHTML = [
+      ["Precision", p.precision, css("--chrome")],
+      ["Recall", p.recall, css("--cool")],
+      ["F1", p.f1, css("--ink-dim")],
+      ["F2", p.f2, css("--warm")],
+    ].map(([l, v, col]) => `
+      <div class="mrow">
+        <span class="lab">${l}</span>
+        <span class="track"><span class="fill" style="width:${(v * 100).toFixed(1)}%;background:${col}"></span></span>
+        <span class="num">${v.toFixed(3)}</span>
+      </div>`).join("");
+  }
+  function renderNote(p) {
+    const base = atT(0.5);
+    const d = base.fn - p.fn;
+    let msg;
+    if (p.t < 0.5 && d > 0) msg = `Against the 0.50 default this catches <strong>${d}</strong> more failing engines, at <strong>${p.fp - base.fp}</strong> extra inspections.`;
+    else if (p.t > 0.5) msg = `Raising the bar drops <strong>${p.fn - base.fn}</strong> more failures through the net to save ${base.fp - p.fp} inspections &mdash; the wrong trade for flight hardware.`;
+    else msg = `The scikit-learn default. Convenient, but nothing about this domain argues for it.`;
+    $("#tNote").innerHTML = msg;
+  }
+  function drawPR(cur) {
+    const cv = $("#prChart");
+    const { c, w, h } = prep(cv);
+    const pad = { l: 44, r: 14, t: 12, b: 34 };
+    const X = (r) => pad.l + r * (w - pad.l - pad.r);
+    const Y = (p) => pad.t + (1 - p) * (h - pad.t - pad.b);
+
+    c.strokeStyle = css("--grid"); c.lineWidth = 1;
+    c.fillStyle = css("--ink-dim"); c.font = '10px "IBM Plex Mono", monospace';
+    for (let i = 0; i <= 4; i++) {
+      const v = i / 4;
+      c.beginPath(); c.moveTo(pad.l, Y(v)); c.lineTo(w - pad.r, Y(v)); c.stroke();
+      c.textAlign = "right"; c.fillText(v.toFixed(2), pad.l - 7, Y(v) + 3);
+      c.beginPath(); c.moveTo(X(v), pad.t); c.lineTo(X(v), h - pad.b); c.stroke();
+      c.textAlign = "center"; c.fillText(v.toFixed(1), X(v), h - pad.b + 15);
+    }
+    c.textAlign = "center";
+    c.fillText("RECALL →", (pad.l + w - pad.r) / 2, h - 6);
+    c.save(); c.translate(11, (pad.t + h - pad.b) / 2); c.rotate(-Math.PI / 2);
+    c.fillText("PRECISION →", 0, 0); c.restore();
+
+    c.beginPath();
+    sweep.points.forEach((p, i) => (i ? c.lineTo(X(p.recall), Y(p.precision)) : c.moveTo(X(p.recall), Y(p.precision))));
+    c.strokeStyle = css("--chrome"); c.lineWidth = 1.8; c.lineJoin = "round"; c.stroke();
+
+    const sh = atT(0.3);
+    c.beginPath(); c.arc(X(sh.recall), Y(sh.precision), 4, 0, Math.PI * 2);
+    c.fillStyle = css("--warm"); c.fill();
+
+    c.beginPath(); c.arc(X(cur.recall), Y(cur.precision), 6.5, 0, Math.PI * 2);
+    c.fillStyle = css("--hot"); c.fill();
+    c.beginPath(); c.arc(X(cur.recall), Y(cur.precision), 11, 0, Math.PI * 2);
+    c.strokeStyle = css("--hot"); c.lineWidth = 1.3; c.globalAlpha = .45; c.stroke(); c.globalAlpha = 1;
+  }
+  function updateT(v) {
+    const t = v / 100, p = atT(t);
+    $("#tVal").textContent = t.toFixed(2);
+    $("#fnVal").textContent = p.fn;
+    $("#fpVal").textContent = p.fp;
+    renderMetrics(p); renderNote(p); drawPR(p);
+  }
+
+  /* ---- regression table ---- */
+  $("#regTable").querySelector("tbody").innerHTML = D.regression.map((r) => `
+    <tr class="${r.selected ? "sel" : ""}">
+      <td>${r.model}${r.selected ? '<span class="tag">shipped</span>' : ""}</td>
+      <td>${r.rmse_train.toFixed(2)}</td><td>${r.rmse_val.toFixed(2)}</td>
+      <td>${r.rmse_all.toFixed(2)}</td><td>${r.mae_all.toFixed(2)}</td>
+      <td>${r.rmse_last.toFixed(2)}</td>
+    </tr>`).join("");
+
+  /* ---- events ---- */
+  function select(u) {
+    selected = u;
+    document.querySelectorAll(".bar").forEach((b) => b.classList.toggle("sel", +b.dataset.u === u));
+    document.querySelectorAll(".tile").forEach((b) => b.setAttribute("aria-pressed", +b.dataset.u === u));
+    renderPanel();
+  }
+  $("#curve").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-u]"); if (b) select(+b.dataset.u);
+  });
+  $("#tiles").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-u]"); if (b) select(+b.dataset.u);
+  });
+  $("#filters").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-f]"); if (!b) return;
+    filter = b.dataset.f;
+    $("#filters").querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", c === b));
+    renderTiles();
+  });
+  $("#tSlider").addEventListener("input", (e) => updateT(+e.target.value));
+
+  $("#themeBtn").addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme");
+    const sysDark = !window.matchMedia("(prefers-color-scheme: light)").matches;
+    const next = cur ? (cur === "dark" ? "light" : "dark") : (sysDark ? "light" : "dark");
+    document.documentElement.setAttribute("data-theme", next);
+    redraw();
+  });
+  function redraw() {
+    renderTiles();
+    document.querySelectorAll(".bar").forEach((b) => {
+      const f = D.fleet.find((x) => x.unit === +b.dataset.u);
+      b.style.setProperty("--c", thermal(f.predicted_rul));
+    });
+    renderPanel();
+    updateT(+$("#tSlider").value);
+  }
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
+  let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(redraw, 140); });
+
+  /* ---- boot ---- */
+  renderTiles();
+  renderPanel();
+  updateT(30);
+  select(ranked[0].unit);
+})();
+</script>
+</body>
+</html>

@@ -3,6 +3,15 @@
 Predicts Remaining Useful Life (RUL) and maintenance risk for jet engines
 using NASA's C-MAPSS FD001 turbofan degradation dataset.
 
+**▶ Live demo: https://ritk7.github.io/predictive-maintenance-ml/**
+
+An interactive console showing all 100 held-out test engines ranked by
+predicted remaining life, each engine's real sensor trace, and a draggable
+alert threshold that recomputes precision, recall and missed failures from
+the actual sweep. Every figure on it is real model output — the page is
+generated from the trained models by `make demo`, with the payload inlined
+so it needs no backend.
+
 All numbers below are real outputs from the committed code, including the
 ones that are unflattering. Section 11 lists known limitations honestly.
 
@@ -232,11 +241,27 @@ and all 100 test engines.
 
 All thresholds live in `src/pipeline/config.py`.
 
-## 8. Frontend
+## 8. Frontends
 
-`frontend/index.html` — no build step, vanilla JS + Chart.js via CDN. Card
-grid color-coded by risk, filter/search, summary counts; click through for
-predicted RUL, maintenance probability, and sensor trend charts.
+Two, for two different jobs:
+
+- **`frontend/index.html` — live dashboard.** Talks to the running API. Card
+  grid color-coded by risk, filter/search, click through for predicted RUL,
+  maintenance probability, and sensor trend charts. Needs `make api`.
+- **`docs/index.html` — hosted static demo** (the live link above). A
+  self-contained operations console with no backend: the fleet ranked as a
+  thermal curve, per-engine sensor traces, and an interactive threshold
+  explorer driven by the real precision/recall sweep. Severity is encoded as
+  temperature because that is the actual physics here — LPT outlet
+  temperature climbs measurably as the compressor degrades (engine 34:
+  1390 → 1427 °R across its life).
+
+Rebuild the demo after retraining with `make demo`, which runs
+`scripts/export_demo_data.py` (dumps real predictions, traces and sweeps to
+`docs/demo_data.json`) then `scripts/build_demo.py` (inlines that payload
+into `docs/index.html`). Inlining rather than fetching keeps the demo a
+single file that works identically over `file://`, any static host, and
+GitHub Pages.
 
 ## 9. Issues found in audit and fixed
 
