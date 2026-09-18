@@ -226,7 +226,14 @@ section:first-of-type { border-top: none; }
 
 .chartbox { margin-top: 6px; }
 .chartlabel { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 7px; display: flex; justify-content: space-between; gap: 10px; }
+/* Display size is pinned here, in CSS, and never comes from the height
+   attribute. Assigning canvas.height reflects back into that attribute, so
+   any code that reads it back to decide the display size compounds the
+   devicePixelRatio scaling on every redraw. With a fixed CSS height the
+   attribute cannot affect layout at all, so that class of bug is impossible. */
 canvas { display: block; width: 100%; }
+#trace { height: 190px; }
+#prChart { height: 300px; }
 .selhint { color: var(--ink-dim); font-size: 13px; font-style: italic; }
 
 /* ---------- threshold explorer ---------- */
@@ -600,18 +607,16 @@ footer a { color: var(--chrome); }
 
   /* ---- canvas helpers ---- */
   function prep(cv) {
+    // Size the bitmap from the box the browser actually laid out. The display
+    // size comes from CSS (see #trace / #prChart), so it is unaffected by the
+    // width/height attributes this function writes — the canvas cannot grow
+    // itself across redraws no matter how many times this runs.
     const dpr = window.devicePixelRatio || 1;
-    // Cache the intended CSS height on first use. Assigning cv.height writes
-    // straight back to the height attribute, so reading that attribute on a
-    // later call returns the already-DPR-scaled value — which made the canvas
-    // grow by a factor of dpr on every single redraw (300px -> 153,600px after
-    // a few slider drags) until it rendered as a blank slab.
-    if (cv.dataset.baseH === undefined) cv.dataset.baseH = cv.getAttribute("height") || "240";
-    const h = +cv.dataset.baseH;
-    const w = cv.clientWidth || cv.parentElement.clientWidth || 320;
-    cv.width = Math.max(1, Math.round(w * dpr));
-    cv.height = Math.max(1, Math.round(h * dpr));
-    cv.style.height = h + "px";
+    const rect = cv.getBoundingClientRect();
+    const w = Math.max(1, Math.round(rect.width));
+    const h = Math.max(1, Math.round(rect.height));
+    const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+    if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
     const c = cv.getContext("2d");
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.clearRect(0, 0, w, h);
