@@ -47,8 +47,16 @@ src/api/
   schemas.py              pydantic models + input validation
   inference.py            artifact loading, feature prep, prediction
   main.py                 FastAPI app
-frontend/index.html       vanilla HTML/JS dashboard (Chart.js via CDN)
+scripts/
+  sample_request.py       one real prediction against a running API
+  export_demo_data.py     dumps real model output for the hosted demo
+  build_demo.py           inlines that payload into docs/index.html
+frontend/
+  index.html              live dashboard (needs the API running)
+  demo_template.html      source for the hosted demo page
+docs/                     GitHub Pages: the self-contained demo + payload
 models_saved/             trained artifacts (gitignored)
+Makefile                  setup / train / api / dashboard / demo targets
 ```
 
 ## 3. Feature engineering
@@ -248,7 +256,8 @@ Two, for two different jobs:
 - **`frontend/index.html` — live dashboard.** Talks to the running API. Card
   grid color-coded by risk, filter/search, click through for predicted RUL,
   maintenance probability, and sensor trend charts. Needs `make api`.
-- **`docs/index.html` — hosted static demo** (the live link above). A
+- **`docs/index.html` — hosted static demo** (the live link above, and the
+  one to open first). A
   self-contained operations console with no backend: the fleet ranked as a
   thermal curve, per-engine sensor traces, and an interactive threshold
   explorer driven by the real precision/recall sweep. Severity is encoded as
@@ -331,3 +340,8 @@ python -m http.server 8080 --directory frontend   # dashboard on :8080
   sensors). It catches gross combination errors, not subtle ones.
 - **`/engines` is a static snapshot** computed at startup from the test
   set; it is a dashboard demo surface, not a live fleet feed.
+
+## 12. License
+
+MIT — see [LICENSE](LICENSE). The C-MAPSS dataset itself is published by
+NASA's Prognostics Center of Excellence and is not covered by this license.

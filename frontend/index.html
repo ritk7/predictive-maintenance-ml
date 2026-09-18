@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Turbofan Predictive Maintenance Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -91,13 +92,16 @@
     <span class="close" onclick="closeModal()">&times;</span>
     <h2 id="modalTitle"></h2>
     <div id="modalMeta"></div>
-    <div class="chart-wrap"><h3>Sensor 11 (physical fan speed) &mdash; degradation trend</h3><canvas id="chartA"></canvas></div>
-    <div class="chart-wrap"><h3>Sensor 4 (LPT outlet temperature) &mdash; degradation trend</h3><canvas id="chartB"></canvas></div>
+    <!-- Sensor names follow the published C-MAPSS schema: sensor_11 is Ps30,
+         static pressure at the HPC outlet (physical fan speed is Nf, sensor_8). -->
+    <div class="chart-wrap"><h3>Sensor 11 &mdash; HPC outlet static pressure (psia)</h3><canvas id="chartA"></canvas></div>
+    <div class="chart-wrap"><h3>Sensor 4 &mdash; LPT outlet temperature (&deg;R)</h3><canvas id="chartB"></canvas></div>
   </div>
 </div>
 
 <script>
 let engines = [];
+let thresholds = {};
 let chartA, chartB;
 
 function apiBase() { return document.getElementById('apiBase').value.replace(/\/$/, ''); }
@@ -115,6 +119,7 @@ async function loadEngines() {
     }
     const data = await res.json();
     engines = data.engines;
+    thresholds = data.risk_thresholds || {};
     renderSummary();
     renderGrid();
   } catch (e) {
@@ -127,11 +132,16 @@ async function loadEngines() {
 function renderSummary() {
   const counts = { high: 0, medium: 0, low: 0 };
   engines.forEach(e => counts[e.risk_level]++);
+  const flagged = engines.filter(e => e.needs_maintenance).length;
+  // Surface the operating point: a bare probability is not interpretable
+  // without the threshold that turns it into a maintenance call.
+  const t = thresholds.decision_threshold;
   document.getElementById('summary').innerHTML = `
     <div class="stat"><div class="n">${engines.length}</div><div class="l">Total Engines</div></div>
     <div class="stat"><div class="n" style="color:var(--high)">${counts.high}</div><div class="l">High Risk</div></div>
     <div class="stat"><div class="n" style="color:var(--medium)">${counts.medium}</div><div class="l">Medium Risk</div></div>
     <div class="stat"><div class="n" style="color:var(--low)">${counts.low}</div><div class="l">Low Risk</div></div>
+    <div class="stat"><div class="n">${flagged}</div><div class="l">Flagged${t !== undefined ? ` (p &ge; ${t})` : ''}</div></div>
   `;
 }
 
