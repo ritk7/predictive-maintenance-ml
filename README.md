@@ -310,7 +310,9 @@ byte-identical results — models are read-only after load).
 ```bash
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-brew install libomp                          # macOS: XGBoost needs OpenMP
+brew install libomp                          # macOS only: XGBoost needs OpenMP.
+                                              # Linux/Windows wheels bundle OpenMP already —
+                                              # nothing extra to install there.
 
 python src/models/train_regression.py
 python src/models/train_classification.py
