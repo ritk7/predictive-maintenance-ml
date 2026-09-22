@@ -318,7 +318,11 @@ python src/models/train_regression.py
 python src/models/train_classification.py
 uvicorn src.api.main:app --reload                 # API on :8000
 python -m http.server 8080 --directory frontend   # dashboard on :8080
+python scripts/sample_request.py                  # sanity-check: one real prediction against the running API
 ```
+
+Each step has a `make` equivalent (`make setup`, `make train`, `make api`,
+`make dashboard`, `make predict`) — see `make help` for the full list.
 
 ## 11. Known limitations
 
