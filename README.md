@@ -307,6 +307,9 @@ byte-identical results — models are read-only after load).
 
 ## 10. Running it end-to-end
 
+**Requirements**: Python 3.9+ (the floor set by the pinned dependencies in
+`requirements.txt`) and, on macOS only, `libomp` for XGBoost (see below).
+
 ```bash
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
