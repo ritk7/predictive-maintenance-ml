@@ -240,6 +240,10 @@ uvicorn src.api.main:app --reload
 - `GET /engines/{unit_id}/history` — sensor history for trend charts.
 - `GET /health` — liveness.
 
+Interactive API docs are served automatically by FastAPI at `/docs`
+(Swagger UI) and `/redoc` once `make api` is running — useful for
+exploring the request/response schemas without reading the source.
+
 **Validation** (all rejected with **400** and an actionable message, never
 a bare 500): missing/extra/wrong-typed fields, NaN/Inf, non-ascending or
 duplicate cycles, reading count outside `[10, 500]`, per-sensor
