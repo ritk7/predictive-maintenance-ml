@@ -5,6 +5,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Documentation
 
+- Added a table of contents linking to all 12 README sections.
 - Added Python version requirement (3.9+) to setup instructions.
 - Documented `sample_request.py` and Makefile target equivalents in the
   quickstart section.

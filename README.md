@@ -15,6 +15,21 @@ so it needs no backend.
 All numbers below are real outputs from the committed code, including the
 ones that are unflattering. Section 11 lists known limitations honestly.
 
+## Contents
+
+1. [Dataset](#1-dataset)
+2. [Project structure](#2-project-structure)
+3. [Feature engineering](#3-feature-engineering)
+4. [Train/test split integrity](#4-traintest-split-integrity)
+5. [RUL regression results](#5-rul-regression-results)
+6. [Maintenance risk classification](#6-maintenance-risk-classification)
+7. [API](#7-api)
+8. [Frontends](#8-frontends)
+9. [Issues found in audit and fixed](#9-issues-found-in-audit-and-fixed)
+10. [Running it end-to-end](#10-running-it-end-to-end)
+11. [Known limitations](#11-known-limitations)
+12. [License](#12-license)
+
 ## 1. Dataset
 
 NASA C-MAPSS FD001: 100 training engines run to failure, 100 test engines
