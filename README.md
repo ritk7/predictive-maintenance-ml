@@ -259,6 +259,21 @@ Interactive API docs are served automatically by FastAPI at `/docs`
 (Swagger UI) and `/redoc` once `make api` is running — useful for
 exploring the request/response schemas without reading the source.
 
+**`/predict` response fields**:
+
+| Field | Meaning |
+|---|---|
+| `predicted_rul` | Predicted remaining useful life, in cycles |
+| `risk_level` | Risk band derived from `predicted_rul` |
+| `needs_maintenance` | Classifier flag at the tuned decision threshold |
+| `maintenance_probability` | Raw classifier probability behind that flag |
+| `confidence` | Regressor confidence in the RUL estimate |
+| `decision_threshold` | The threshold actually applied (`0.30`, from config) |
+| `input_plausibility_warning` | Set when the OOD guard (§9) flags the input as atypical |
+| `cycles_supplied` | Echoes how many readings were in the request |
+| `model_used_regressor` / `model_used_classifier` | Which trained model produced this prediction |
+| `horizon_cycles` | The maintenance horizon the classifier was trained on (30) |
+
 **Validation** (all rejected with **400** and an actionable message, never
 a bare 500): missing/extra/wrong-typed fields, NaN/Inf, non-ascending or
 duplicate cycles, reading count outside `[10, 500]`, per-sensor
