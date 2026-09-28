@@ -383,6 +383,11 @@ Each step has a `make` equivalent (`make setup`, `make train`, `make api`,
   sensors). It catches gross combination errors, not subtle ones.
 - **`/engines` is a static snapshot** computed at startup from the test
   set; it is a dashboard demo surface, not a live fleet feed.
+- **No automated test suite.** The correctness claims in §3–§9 (causality,
+  split integrity, concurrency, the audit fixes) were checked with one-off
+  verification scripts and manual review, not a repeatable pytest suite
+  that runs in CI. A regression in `features.py` or `ood.py` would not be
+  caught automatically.
 
 ## 12. License
 
