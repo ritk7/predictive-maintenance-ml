@@ -5,6 +5,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Documentation
 
+- Added a Troubleshooting section covering the most common setup errors
+  (missing data files, missing `PYTHONPATH`, predicting before training,
+  port conflicts, and the macOS OpenMP error).
 - Documented every `/predict` response field in a table in the API section,
   so callers don't need to read `schemas.py` to know what comes back.
 - Added a table of contents linking to all 12 README sections.
