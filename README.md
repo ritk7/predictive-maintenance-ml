@@ -28,7 +28,8 @@ ones that are unflattering. Section 11 lists known limitations honestly.
 9. [Issues found in audit and fixed](#9-issues-found-in-audit-and-fixed)
 10. [Running it end-to-end](#10-running-it-end-to-end)
 11. [Known limitations](#11-known-limitations)
-12. [License](#12-license)
+12. [Troubleshooting](#12-troubleshooting)
+13. [License](#13-license)
 
 ## 1. Dataset
 
@@ -389,7 +390,28 @@ Each step has a `make` equivalent (`make setup`, `make train`, `make api`,
   that runs in CI. A regression in `features.py` or `ood.py` would not be
   caught automatically.
 
-## 12. License
+## 12. Troubleshooting
+
+- **`FileNotFoundError` for `train_FD001.txt` / `test_FD001.txt` /
+  `RUL_FD001.txt`**: the raw C-MAPSS files are gitignored and not fetched
+  automatically. Download them into `data/` as described in §1.
+- **`ModuleNotFoundError: No module named 'src'`** when running a script
+  directly (e.g. `python src/models/train_regression.py`): the project
+  expects to be run with the repo root on `PYTHONPATH`. Either use the
+  matching `make` target (they all set `PYTHONPATH=.` for you) or run
+  `PYTHONPATH=. python <script>` by hand.
+- **API starts but every prediction 500s / model file not found**: the API
+  loads artifacts from `models_saved/`, which is gitignored and only
+  populated by training. Run `make train` (or both
+  `train_regression.py` and `train_classification.py`) before `make api`.
+- **`Address already in use` on `:8000` or `:8080`**: another process is
+  already bound to the API or dashboard port. Stop it, or override the
+  port directly (e.g. `uvicorn src.api.main:app --port 8001`).
+- **macOS: `XGBoostError: XGBoost Library could not be loaded`**: see the
+  `libomp` note in §10 — the prebuilt macOS wheel needs OpenMP installed
+  separately.
+
+## 13. License
 
 MIT — see [LICENSE](LICENSE). The C-MAPSS dataset itself is published by
 NASA's Prognostics Center of Excellence and is not covered by this license.
