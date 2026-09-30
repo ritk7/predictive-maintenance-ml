@@ -5,6 +5,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Documentation
 
+- Added a sample `curl` request and response body for `POST /predict` to
+  the API section, alongside the existing response-field table.
 - Added a Troubleshooting section covering the most common setup errors
   (missing data files, missing `PYTHONPATH`, predicting before training,
   port conflicts, and the macOS OpenMP error).
