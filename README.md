@@ -260,6 +260,45 @@ Interactive API docs are served automatically by FastAPI at `/docs`
 (Swagger UI) and `/redoc` once `make api` is running — useful for
 exploring the request/response schemas without reading the source.
 
+**Example** (the `readings` array is truncated to one entry here for
+readability — a real request needs at least `MIN_HISTORY_CYCLES` entries,
+currently 10; anything shorter is rejected with a 400, see §9):
+
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "unit_id": "24",
+    "readings": [
+      {"cycle": 1, "setting_1": 0.0, "setting_2": 0.0, "setting_3": 100.0,
+       "sensor_1": 518.7, "sensor_2": 642.1, "sensor_3": 1585.4, "sensor_4": 1398.2,
+       "sensor_5": 14.6, "sensor_6": 21.6, "sensor_7": 554.4, "sensor_8": 2388.0,
+       "sensor_9": 9046.2, "sensor_10": 1.3, "sensor_11": 47.2, "sensor_12": 521.7,
+       "sensor_13": 2388.0, "sensor_14": 8138.6, "sensor_15": 8.42, "sensor_16": 0.03,
+       "sensor_17": 392, "sensor_18": 2388, "sensor_19": 100.0, "sensor_20": 39.0,
+       "sensor_21": 23.4},
+      "... 9 more cycles ..."
+    ]
+  }'
+```
+
+```json
+{
+  "unit_id": "24",
+  "predicted_rul": 15.9,
+  "risk_level": "high",
+  "needs_maintenance": true,
+  "maintenance_probability": 0.87,
+  "confidence": 0.74,
+  "decision_threshold": 0.3,
+  "input_plausibility_warning": false,
+  "cycles_supplied": 1,
+  "model_used_regressor": "xgboost",
+  "model_used_classifier": "random_forest",
+  "horizon_cycles": 30
+}
+```
+
 **`/predict` response fields**:
 
 | Field | Meaning |
