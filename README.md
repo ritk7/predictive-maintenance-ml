@@ -314,6 +314,44 @@ curl -X POST http://localhost:8000/predict \
 | `model_used_regressor` / `model_used_classifier` | Which trained model produced this prediction |
 | `horizon_cycles` | The maintenance horizon the classifier was trained on (30) |
 
+**`GET /engines` example response** (truncated to one engine):
+
+```json
+{
+  "engines": [
+    {
+      "unit_id": "24",
+      "last_cycle": 10,
+      "predicted_rul": 15.9,
+      "risk_level": "high",
+      "needs_maintenance": true,
+      "maintenance_probability": 0.87
+    }
+  ],
+  "count": 100,
+  "risk_thresholds": {
+    "high_below_rul": 20,
+    "medium_below_rul": 50,
+    "decision_threshold": 0.3
+  }
+}
+```
+
+**`GET /engines/{unit_id}/history` example response** (truncated to one
+cycle and two sensors; the real payload has one entry per cycle and one
+array per kept sensor, see §3 for which sensors are dropped):
+
+```json
+{
+  "unit_id": "24",
+  "history": {
+    "cycle": [1],
+    "sensor_2": [642.1],
+    "sensor_3": [1585.4]
+  }
+}
+```
+
 **Validation** (all rejected with **400** and an actionable message, never
 a bare 500): missing/extra/wrong-typed fields, NaN/Inf, non-ascending or
 duplicate cycles, reading count outside `[10, 500]`, per-sensor
