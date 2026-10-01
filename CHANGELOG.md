@@ -5,6 +5,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Documentation
 
+- Added example response bodies for `GET /engines` and
+  `GET /engines/{unit_id}/history` to the API section, matching the
+  existing `POST /predict` example.
 - Added a sample `curl` request and response body for `POST /predict` to
   the API section, alongside the existing response-field table.
 - Added a Troubleshooting section covering the most common setup errors
