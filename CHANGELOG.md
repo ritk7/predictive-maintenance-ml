@@ -5,6 +5,10 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Documentation
 
+- Added a reference table of the key tunable constants in `config.py`
+  (`MIN_HISTORY_CYCLES`, `DECISION_THRESHOLD`, the risk/OOD thresholds) to
+  the API section, so callers don't need to read the source to know what
+  values drive the API's behavior.
 - Added example response bodies for `GET /engines` and
   `GET /engines/{unit_id}/history` to the API section, matching the
   existing `POST /predict` example.

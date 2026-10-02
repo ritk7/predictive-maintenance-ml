@@ -359,7 +359,17 @@ out-of-plausible-range values, and **implausible sensor combinations**
 (see §9). Verified: zero false rejections across all 33,727 real data rows
 and all 100 test engines.
 
-All thresholds live in `src/pipeline/config.py`.
+All thresholds live in `src/pipeline/config.py`. The ones most relevant to a
+caller of the API:
+
+| Constant | Value | Effect |
+|---|---:|---|
+| `MIN_HISTORY_CYCLES` | 10 | Minimum `readings` entries before a request is accepted |
+| `DECISION_THRESHOLD` | 0.30 | Probability cutoff for `needs_maintenance` |
+| `RISK_HIGH_RUL` | 20 | Predicted RUL below this → `risk_level: "high"` |
+| `RISK_MEDIUM_RUL` | 50 | Predicted RUL below this (and ≥ high) → `"medium"`; else `"low"` |
+| `OOD_WARN_PERCENTILE` | 99.9 | Training percentile above which `input_plausibility_warning` is set |
+| `OOD_REJECT_FACTOR` | 3.0× | Multiple of the warn threshold above which a request is hard-rejected (400) |
 
 ## 8. Frontends
 
