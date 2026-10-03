@@ -1,5 +1,10 @@
 # Turbofan Predictive Maintenance
 
+![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
+![API](https://img.shields.io/badge/api-FastAPI-009688)
+![Models](https://img.shields.io/badge/models-RandomForest%20%7C%20XGBoost-orange)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
+
 Predicts Remaining Useful Life (RUL) and maintenance risk for jet engines
 using NASA's C-MAPSS FD001 turbofan degradation dataset.
 
