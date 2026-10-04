@@ -5,6 +5,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Documentation
 
+- Added an example response body for `GET /health` to the API section,
+  completing example coverage for all four endpoints (previously only
+  `/predict`, `/engines`, and `/engines/{id}/history` had one).
 - Added a reference table of the key tunable constants in `config.py`
   (`MIN_HISTORY_CYCLES`, `DECISION_THRESHOLD`, the risk/OOD thresholds) to
   the API section, so callers don't need to read the source to know what

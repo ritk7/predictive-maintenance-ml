@@ -357,6 +357,12 @@ array per kept sensor, see §3 for which sensors are dropped):
 }
 ```
 
+**`GET /health` example response**:
+
+```json
+{ "status": "ok" }
+```
+
 **Validation** (all rejected with **400** and an actionable message, never
 a bare 500): missing/extra/wrong-typed fields, NaN/Inf, non-ascending or
 duplicate cycles, reading count outside `[10, 500]`, per-sensor
