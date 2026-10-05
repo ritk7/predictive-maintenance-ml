@@ -370,6 +370,21 @@ out-of-plausible-range values, and **implausible sensor combinations**
 (see §9). Verified: zero false rejections across all 33,727 real data rows
 and all 100 test engines.
 
+**Example 400 response** (submitting fewer than `MIN_HISTORY_CYCLES`
+readings — schema violations are field-level detail, not a bare message):
+
+```json
+{
+  "detail": "Invalid request payload.",
+  "errors": [
+    {
+      "field": "readings",
+      "message": "Value error, Insufficient history: 1 cycle(s) supplied, but 10 are required. Rolling-std and degradation-slope features need a full 10-cycle window; with less history they collapse to zero, which the model reads as a healthy, non-degrading engine and causes it to significantly OVER-predict remaining life."
+    }
+  ]
+}
+```
+
 All thresholds live in `src/pipeline/config.py`. The ones most relevant to a
 caller of the API:
 

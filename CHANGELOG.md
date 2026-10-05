@@ -5,6 +5,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Documentation
 
+- Added an example 400 error response body (field-level validation detail)
+  to the API section, so callers can see the actual shape of a rejected
+  request alongside the existing success-response examples.
 - Added an example response body for `GET /health` to the API section,
   completing example coverage for all four endpoints (previously only
   `/predict`, `/engines`, and `/engines/{id}/history` had one).
