@@ -47,7 +47,7 @@ byte-identical GitHub mirror:
 `https://github.com/hankroark/Turbofan-Engine-Degradation` (`CMAPSSData/`).
 If it disappears, download `train_FD001.txt`, `test_FD001.txt`,
 `RUL_FD001.txt` from any C-MAPSS mirror (e.g. the Kaggle "NASA C-MAPSS"
-dataset) into `data/`.
+dataset) into `data/`. The three files together are about **5.5MB**.
 
 Columns (no header): `unit, cycle, setting_1..3, sensor_1..21`.
 
@@ -457,6 +457,9 @@ byte-identical results — models are read-only after load).
 
 **Requirements**: Python 3.9+ (the floor set by the pinned dependencies in
 `requirements.txt`) and, on macOS only, `libomp` for XGBoost (see below).
+Training writes about **29MB** of artifacts to `models_saved/` (five
+models, the scaler, and the OOD guard) — trivial on disk, but worth
+knowing before `make train` if you're on a constrained environment.
 
 ```bash
 python -m venv venv && source venv/bin/activate
