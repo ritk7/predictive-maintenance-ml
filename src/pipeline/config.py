@@ -58,8 +58,8 @@ RUL_CLIP = 125
 # FD001 engines degrade over ~150-360 cycles, and a 30-cycle horizon gives
 # maintenance planners realistic lead time to schedule downtime/parts
 # without flagging so early that the alert is ignored. Empirically N=20
-# leaves only 0.94% positives in the held-out test set (too sparse to
-# estimate recall stably), while N=30 gives 2.54%; see README §6.
+# leaves only 1.01% positives in the held-out test set (too sparse to
+# estimate recall stably), while N=30 gives 2.72%; see README §6.
 MAINTENANCE_HORIZON = 30
 
 # Decision threshold on predicted P(needs maintenance).
